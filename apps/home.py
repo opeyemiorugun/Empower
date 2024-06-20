@@ -6,13 +6,18 @@ from io import StringIO
 def fetch_github_file(url):
     response = requests.get(url)
     if response.status_code == 200:
-        return StringIO(response.text), url.split('/')[-1]  # Return file-like object and filename
+        content = response.text
+        # Check if the content is a Git LFS pointer
+        if content.startswith("version https://git-lfs.github.com/spec/v1"):
+            st.error(f"Failed to fetch actual file content from {url}. It appears to be a Git LFS pointer.")
+            return None, None
+        return StringIO(content), url.split('/')[-1]  # Return file-like object and filename
     else:
         st.error(f"Failed to fetch file from {url}")
         return None, None
 
 def load_data(uploaded_files):
-    label_file = uploaded_files['label_file'][0]
+    label_file, label_filename = uploaded_files['label_file']
     labels = pd.read_csv(label_file, delimiter="\s+", names=["no", "title"])
     label_dict = labels.set_index('no').to_dict()['title']
 
@@ -20,18 +25,18 @@ def load_data(uploaded_files):
     column_names = []
 
     for uploaded_file, filename in uploaded_files['csv_files']:
-        appliance_number = int(filename.split('_')[1].split('.')[0])
+        channel_number = int(filename.split('_')[1].split('.')[0])
 
-        # Debug: Show appliance number and label dictionary
-        st.write(f"Appliance number from file: {appliance_number}")
+        # Debug: Show channel number and label dictionary
+        st.write(f"Channel number from file: {channel_number}")
         st.write(f"Label dictionary: {label_dict}")
 
-        # Check if appliance_number exists in label_dict
-        if appliance_number not in label_dict:
-            st.error(f"Appliance number {appliance_number} not found in label file.")
+        # Check if channel_number exists in label_dict
+        if channel_number not in label_dict:
+            st.error(f"Channel number {channel_number} not found in label file.")
             continue
 
-        appliance_name = label_dict[appliance_number]
+        appliance_name = label_dict[channel_number]
         column_names.append(appliance_name)
 
         temp = pd.read_csv(uploaded_file, delimiter="\s+", names=["timestamp", "Power"], dtype={'timestamp': 'float64'}, engine='python')
@@ -52,7 +57,7 @@ def app():
     base_url = "https://raw.githubusercontent.com/opeyemiorugun/Empower/master/data/"  # Adjust the URL based on your repository structure
     label_file_url = base_url + "house_5/labels.dat"
     weather_file_url = base_url + "weather.csv"
-    csv_files_urls = [base_url + "house_5/" + f"channel_{i}.dat" for i in range(2, 25)]  # Adjust the filenames as per your repository
+    csv_files_urls = [base_url + "house_5/" + f"channel_{i}.dat" for i in range(1, 26)]  # Adjust the filenames as per your repository
 
     # Fetch the label file from GitHub
     label_file, label_filename = fetch_github_file(label_file_url)
@@ -70,4 +75,6 @@ def app():
                 
                 # Fetch the weather file from GitHub
                 weather_file, weather_filename = fetch_github_file(weather_file_url)
-               
+                if weather_file:
+                    try:
+                        weather_csv = pd.read_csv(weather
