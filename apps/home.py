@@ -3,17 +3,26 @@ import pandas as pd
 import requests
 from io import StringIO
 
-def fetch_github_file(url):
-    response = requests.get(url)
+def fetch_github_file_via_api(owner, repo, path, token=None):
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+    headers = {}
+    if token:
+        headers['Authorization'] = f"token {token}"
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        content = response.text
-        # Check if the content is a Git LFS pointer
-        if content.startswith("version https://git-lfs.github.com/spec/v1"):
-            st.error(f"Failed to fetch actual file content from {url}. It appears to be a Git LFS pointer.")
+        content = response.json()
+        if content['type'] == 'file':
+            file_content = requests.get(content['download_url'])
+            if file_content.status_code == 200:
+                return StringIO(file_content.text), path.split('/')[-1]
+            else:
+                st.error(f"Failed to download file content from {content['download_url']}")
+                return None, None
+        else:
+            st.error(f"Content at {url} is not a file")
             return None, None
-        return StringIO(content), url.split('/')[-1]  # Return file-like object and filename
     else:
-        st.error(f"Failed to fetch file from {url}")
+        st.error(f"Failed to fetch file metadata from {url}")
         return None, None
 
 def load_data(uploaded_files):
@@ -53,17 +62,22 @@ def load_data(uploaded_files):
 def app():
     st.title("Upload Appliance Load Data")
 
+    # Define GitHub repository details
+    owner = "opeyemiorugun"
+    repo = "Empower"
+    base_path = "data/house_5/"
+    token = None  # Add your GitHub token here if you have one
+
     # URLs of the files in your GitHub repository
-    base_url = "https://raw.githubusercontent.com/opeyemiorugun/Empower/master/data/"  # Adjust the URL based on your repository structure
-    label_file_url = base_url + "house_5/labels.dat"
-    weather_file_url = base_url + "weather.csv"
-    csv_files_urls = [base_url + "house_5/" + f"channel_{i}.dat" for i in range(1, 26)]  # Adjust the filenames as per your repository
+    label_file_path = base_path + "labels.dat"
+    weather_file_path = "data/weather.csv"
+    csv_files_paths = [base_path + f"channel_{i}.dat" for i in range(1, 26)]
 
     # Fetch the label file from GitHub
-    label_file, label_filename = fetch_github_file(label_file_url)
+    label_file, label_filename = fetch_github_file_via_api(owner, repo, label_file_path, token)
     if label_file:
         # Fetch the CSV files from GitHub
-        csv_files = [fetch_github_file(url) for url in csv_files_urls]
+        csv_files = [fetch_github_file_via_api(owner, repo, path, token) for path in csv_files_paths]
         csv_files = [(file, filename) for file, filename in csv_files if file is not None]  # Filter out any failed downloads
         uploaded_files = {'label_file': (label_file, label_filename), 'csv_files': csv_files}
         
@@ -74,7 +88,7 @@ def app():
                 st.write(data["dataframe"].head())
                 
                 # Fetch the weather file from GitHub
-                weather_file, weather_filename = fetch_github_file(weather_file_url)
+                weather_file, weather_filename = fetch_github_file_via_api(owner, repo, weather_file_path, token)
                 if weather_file:
                     try:
                         weather_csv = pd.read_csv(weather_file)
