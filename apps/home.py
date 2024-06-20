@@ -8,6 +8,7 @@ def fetch_github_file_via_api(owner, repo, path, token=None):
     headers = {}
     if token:
         headers['Authorization'] = f"token {token}"
+    
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         content = response.json()
@@ -22,7 +23,7 @@ def fetch_github_file_via_api(owner, repo, path, token=None):
             st.error(f"Content at {url} is not a file")
             return None, None
     else:
-        st.error(f"Failed to fetch file metadata from {url}")
+        st.error(f"Failed to fetch file metadata from {url}: {response.status_code} {response.text}")
         return None, None
 
 def load_data(uploaded_files):
