@@ -77,4 +77,32 @@ def app():
                 weather_file, weather_filename = fetch_github_file(weather_file_url)
                 if weather_file:
                     try:
-                        weather_csv = pd.read_csv(weather
+                        weather_csv = pd.read_csv(weather_file)
+                        st.write("Weather Data Loaded Successfully")
+                        st.write(weather_csv.head())
+
+                        # Store data in session state
+                        st.session_state['uploaded_data'] = data["dataframe"]
+                        st.session_state['column_names'] = data["column_names"]
+                        st.session_state["weather_data"] = weather_csv
+
+                        # Navigation buttons
+                        if st.button("Go to Power Forecasting"):
+                            st.session_state['page'] = 'Power Forecasting'
+                        if st.button("Go to Electricity Theft Detection"):
+                            st.session_state['page'] = 'Electricity Theft Detection'
+                        if st.button("Go to Energy Optimization"):
+                            st.session_state['page'] = 'Energy Optimization'
+                    except Exception as e:
+                        st.error(f"Error reading weather file: {e}")
+                else:
+                    st.warning("Please upload the weather file.")
+            else:
+                st.error("No valid data found.")
+        else:
+            st.error("No files uploaded.")
+    else:
+        st.error("Please upload the label file.")
+
+if __name__ == "__main__":
+    app()
