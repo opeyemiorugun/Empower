@@ -4,11 +4,13 @@ import requests
 from io import StringIO
 
 def fetch_github_file(url):
+    st.write(f"Fetching URL: {url}")
     response = requests.get(url)
     if response.status_code == 200:
+        st.write(f"Successfully fetched file from {url}")
         return StringIO(response.text), url.split('/')[-1]  # Return file-like object and filename
     else:
-        st.error(f"Failed to fetch file from {url}")
+        st.error(f"Failed to fetch file from {url} with status code {response.status_code}")
         return None, None
 
 def load_data(uploaded_files):
