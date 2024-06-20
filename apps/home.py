@@ -12,7 +12,7 @@ def fetch_github_file(url):
         return None, None
 
 def load_data(uploaded_files):
-    label_file = uploaded_files['label_file']
+    label_file = uploaded_files['label_file'][0]
     labels = pd.read_csv(label_file, delimiter="\s+", names=["no", "title"])
     label_dict = labels.set_index('no').to_dict()['title']
 
@@ -50,14 +50,18 @@ def app():
 
     # URLs of the files in your GitHub repository
     base_url = "https://raw.githubusercontent.com/opeyemiorugun/Empower/master/data/"  # Adjust the URL based on your repository structure
-    label_file_url = base_url + "house_5/"  +"labels.dat"
+    label_file_url = base_url + "house_5/labels.dat"
     weather_file_url = base_url + "weather.csv"
     csv_files_urls = [base_url + "house_5/" + f"channel_{i}.dat" for i in range(2, 25)]  # Adjust the filenames as per your repository
 
     # Fetch the label file from GitHub
     label_file, label_filename = fetch_github_file(label_file_url)
     if label_file:
-        uploaded_files = {'label_file': label_file, 'csv_files': [fetch_github_file(url) for url in csv_files_urls]}
+        # Fetch the CSV files from GitHub
+        csv_files = [fetch_github_file(url) for url in csv_files_urls]
+        csv_files = [(file, filename) for file, filename in csv_files if file is not None]  # Filter out any failed downloads
+        uploaded_files = {'label_file': (label_file, label_filename), 'csv_files': csv_files}
+        
         if all(file[0] for file in uploaded_files['csv_files']):
             data = load_data(uploaded_files)
             if not data["dataframe"].empty:
@@ -66,34 +70,4 @@ def app():
                 
                 # Fetch the weather file from GitHub
                 weather_file, weather_filename = fetch_github_file(weather_file_url)
-                if weather_file:
-                    try:
-                        weather_csv = pd.read_csv(weather_file)
-                        st.write("Weather Data Loaded Successfully")
-                        st.write(weather_csv.head())
-
-                        # Store data in session state
-                        st.session_state['uploaded_data'] = data["dataframe"]
-                        st.session_state['column_names'] = data["column_names"]
-                        st.session_state["weather_data"] = weather_csv
-
-                        # Navigation buttons
-                        if st.button("Go to Power Forecasting"):
-                            st.session_state['page'] = 'Power Forecasting'
-                        if st.button("Go to Electricity Theft Detection"):
-                            st.session_state['page'] = 'Electricity Theft Detection'
-                        if st.button("Go to Energy Optimization"):
-                            st.session_state['page'] = 'Energy Optimization'
-                    except Exception as e:
-                        st.error(f"Error reading weather file: {e}")
-                else:
-                    st.warning("Please upload the weather file.")
-            else:
-                st.error("No valid data found.")
-        else:
-            st.error("No files uploaded.")
-    else:
-        st.error("Please upload the label file.")
-
-if __name__ == "__main__":
-    app()
+               
