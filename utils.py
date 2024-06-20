@@ -9,16 +9,36 @@ from datetime import datetime, timedelta
 from sklearn.cluster import KMeans
 import xgboost as xgb
 import lightgbm as lgm
+import requests
+from io import BytesIO
+
+def fetch_github_file(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return BytesIO(response.content)
+    else:
+        st.error(f"Failed to fetch file from {url}")
+        return None
 
 def load_model(appliances):
+    base_url = "https://raw.githubusercontent.com/opeyemiorugun/Empower/master/models/"  # Update with your GitHub repository URL
     models = {}
     for appliance in appliances:
-        filepath = f"../interactive_app/models/{appliance}_model.joblib"
-        try:
-            models[appliance] = joblib.load(filepath)
-        except OSError as e:
-            st.error(f"Error loading model for {appliance}: {e}")
+        file_url = f"{base_url}{appliance}_model.joblib"
+        model_file = fetch_github_file(file_url)
+        if model_file:
+            try:
+                models[appliance] = joblib.load(model_file)
+            except Exception as e:
+                st.error(f"Error loading model for {appliance}: {e}")
+        else:
+            st.error(f"Model file for {appliance} not found.")
     return models
+
+# Example usage
+appliances = ['kettle', 'fridge_freezer', 'microwave']
+models = load_model(appliances)
+
 
 @st.cache_data
 def preprocess_data(data, column_names):
